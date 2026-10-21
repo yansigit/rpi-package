@@ -109,6 +109,7 @@ impl GraphState {
             .any(|node| node.status == graph::Status::Running)
     }
 
+    #[cfg(test)]
     pub(crate) fn graph(&self) -> &graph::Graph {
         &self.graph
     }
