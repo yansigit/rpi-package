@@ -3,31 +3,46 @@
 Rust-native extension packages for the `rpi` agent, built against the stable
 `rpi-plugin-sdk` ABI from `pi-rust`.
 
-The selection was taken from the Pi package catalog on 2026-09-09. Pi does not
-publish star ratings in the catalog, so monthly downloads are used as the
-objective popularity signal. These three cover the highest-download extensions
-that map cleanly onto the current Rust SDK:
+The workspace includes tools, workflow extensions, provider integrations and
+client adapters. Each package has its own version and setup guide. The
+[package catalog](catalog/packages.json) records installation commands and
+versioned prebuilt manifests for catalog extensions.
 
-| Rust package | Inspired by | Catalog downloads/month | Registered tool |
-| --- | --- | ---: | --- |
-| `rpi-mcp-adapter` | `pi-mcp-adapter` | 761,442 | `mcp_list`, `mcp_call`, `mcp_request` |
-| `rpi-subagents` | `pi-subagents` | 362,483 | `delegate_task` |
-| `rpi-lens` | `pi-lens` | 65,476 | `code_lens` |
+## Packages
 
-These are independent Rust implementations, not ports of upstream source code.
+| Package | Tools and capabilities |
+| --- | --- |
+| [rpi-mcp-adapter](packages/rpi-mcp-adapter/README.md) | Connect MCP servers with `mcp_list`, `mcp_call` and `mcp_request` |
+| [rpi-subagents](packages/rpi-subagents/README.md) | Delegate work with `delegate_task` |
+| [rpi-orchestrator](packages/rpi-orchestrator/README.md) | Bounded child agents and task graphs with `subagent`, `plan` and `dispatch` |
+| [rpi-durable](packages/rpi-durable/README.md) | Persist and resume workflow checkpoints with `durable` |
+| [rpi-lens](packages/rpi-lens/README.md) | Inspect code with `code_lens` |
+| [rpi-codegraph](packages/rpi-codegraph/README.md) | Query code relationships with `codegraph` |
+| [rpi-todo](packages/rpi-todo/README.md) | Track tasks with `todo` |
+| [rpi-goal](packages/rpi-goal/README.md) | Maintain a persistent project objective with `goal` |
+| [rpi-plan-mode](packages/rpi-plan-mode/README.md) | Plan work with `/plan`, `plan_mode_start` and `plan_mode_complete` |
+| [rpi-btw](packages/rpi-btw/README.md) | Read-only side conversations with `/btw`; requires rpi 0.6.0 or newer |
+| [rpi-ask-user](packages/rpi-ask-user/README.md) | Ask interactive questions with `ask_user` |
+| [rpi-permissions](packages/rpi-permissions/README.md) | Manage tool policies with `permissions` |
+| [rpi-permission-gate](packages/rpi-permission-gate/README.md) | Confirm `bash`, `write` and `edit` through host UI dialogs |
+| [rpi-websearch](packages/rpi-websearch/README.md) | Search the web with `websearch` |
+| [rpi-webfetch](packages/rpi-webfetch/README.md) | Fetch web content with `webfetch` |
+| [rpi-im-message](packages/rpi-im-message/README.md) | Run a headless Feishu/Lark service |
+| [rpi-voice](packages/rpi-voice/README.md) | Dictation and spoken replies with `/voice`; offline STT enabled by default |
+| [rpi-run-stats](packages/rpi-run-stats/README.md) | Display live usage, timing and cost in the TUI |
+| [rpi-langfuse](packages/rpi-langfuse/README.md) | Export traces and manage scores and prompts with Langfuse |
+| [rpi-providers](packages/rpi-providers/README.md) | Add DeepSeek, OpenRouter, llama.cpp and Proxy providers |
+| [rpi-server](packages/rpi-server/README.md) | Serve TCP JSONL requests and streaming subscriptions with `--server` |
+| [rpi-acp](packages/rpi-acp/README.md) | Connect ACP clients, including Zed and Open WebUI Computer |
+| [rpi-ui-adapter](packages/rpi-ui-adapter/README.md) | Connect Open WebUI directly through `--webui=openwebui` |
 
-The workspace also includes local-first workflow packages: `rpi-todo`
-(`todo`), `rpi-goal` (`goal`, a Codex-style persistent, context-injected
-objective per project), `rpi-plan-mode` (`/plan`, `plan_mode_start`,
-`plan_mode_complete`),
-`rpi-codegraph` (`codegraph`),
-`rpi-ask-user`, `rpi-permissions`,
-`rpi-websearch`, `rpi-webfetch`, plus `rpi-im-message` (`im_message_server`), plus
-`rpi-voice`, which adds `/voice` dictation and spoken replies to the running
-TUI. Its STT is OpenAI-compatible by default; built with `--features local-stt`
-it embeds sherpa-onnx + SenseVoice and runs entirely offline (see
-[`packages/rpi-voice/README.md`](packages/rpi-voice/README.md) for the build
-either way).
+Extensions inspired by Pi packages are independent Rust implementations, not
+ports of upstream source code.
+
+`rpi-voice` embeds sherpa-onnx + SenseVoice for offline speech recognition by
+default. OpenAI-compatible STT is also available; see the
+[voice guide](packages/rpi-voice/README.md) for model setup, build options and
+speech output configuration.
 
 `rpi-run-stats` adds a live monitoring row below the usage footer: turns, LLM calls, tool executions,
 output tok/s, time to first token, response time, rolling 60-second TPM,
@@ -42,9 +57,47 @@ See [rpi-run-stats](packages/rpi-run-stats/README.md) for measurement definition
 `rpi-providers` is one independently loaded package for DeepSeek, OpenRouter,
 llama.cpp and Proxy. It keeps a single native plugin entry and separate
 provider IDs, model catalogs and authentication policies. Install or upgrade
-one package; maintain vendor implementations in separate modules. It currently
-requires the provider-package host branch and source linking. See
-[the package guide](packages/rpi-providers/README.md) for migration and tests.
+one package; maintain vendor implementations in separate modules.
+
+```bash
+rpi install rpi-providers --github pi-rust/rpi-package
+```
+
+Starting with 0.1.2, this package is published to crates.io and distributed as
+prebuilt archives through GitHub Releases. It uses `rpi-plugin-sdk` 0.6.3 with the optional
+`provider` feature and matching `rpi-ai` 0.6.3; use the rpi 0.6.3 host for this
+package. See [the package guide](packages/rpi-providers/README.md) for compatibility,
+source linking, migration and tests.
+
+## Web workspace (rpi-web)
+
+`rpi-web` provides project-based conversations in a browser, with streaming replies, tool interactions, Markdown rendering, file previews, and Git diffs. The interface supports English and Simplified Chinese. It supports a native extension entry point and a standalone program, sharing the same Web core.
+
+Download and extract a [Web release](https://github.com/pi-rust/rpi-package/releases?q=rpi-web-v), keep the complete `assets/` directory, and install the [rpi 0.7.0 host](https://github.com/bigfish1913/pi-rust/releases/tag/v0.7.0). Configure model credentials for the service process before starting:
+
+```bash
+# Run from the extracted Web directory with an existing project directory.
+./rpi-web --project /path/to/project --rpi-bin /path/to/rpi --assets ./assets --port 3030
+```
+
+Open [http://127.0.0.1:3030/](http://127.0.0.1:3030/), select a project, and create a session. On Windows, use `rpi-web.exe` and `rpi.exe`.
+
+The [Web user guide](packages/rpi-web/README.md) covers Windows / Linux / macOS setup, project creation, model credentials, password login, remote access, persistence, and upgrades. Web 0.1.7 uses `rpi --webserver` to start the native extension with embedded frontend resources; `--web` remains a compatibility alias. Install it with `rpi install rpi-web --github pi-rust/rpi-package`, or from a checkout using `rpi install rpi-web --path packages/rpi-web`.
+
+Web 0.1.1 supports `.rpi/web.json` startup settings. Run `rpi-web --init` once in a project directory, configure the host and assets paths, then use `rpi-web` for subsequent starts. Global defaults can be stored in `~/.rpi/web.json`, and CLI arguments provide temporary overrides. Users of Web 0.1.0 must upgrade to use configuration files.
+
+## Shared backend and HTTP API
+
+`rpi-extcore` now holds the common ACP/Web native RPC, run, session, history, event and workspace capabilities. `rpi-http` adapts those services to the existing HTTP/SSE API and provides an API-only executable. `rpi-web` adds the embedded browser frontend; `rpi-acp` maps the common runtime to ACP.
+
+```bash
+cargo run --locked -p rpi-http -- --project /path/to/project --rpi-bin /path/to/rpi --port 3030
+```
+
+`rpi-extcore` is also published as a reusable crates.io library. Applications
+can depend on the compatible minor line with `rpi-extcore = "0.1"`; it requires
+Rust 1.78+ and a compatible native `rpi --mode rpc` executable at runtime. See
+[rpi-extcore](packages/rpi-extcore/README.md), [rpi-http](packages/rpi-http/README.md) and the [architecture contract](docs/architecture/extension-core.md). The new packages are ordinary Rust libraries; existing extension installation and startup commands remain the same.
 
 ## Native ACP integration
 
@@ -103,9 +156,13 @@ commands; Python 3 is required for the ACP integration tests. The `rpi` host
 must already be installed and configured to run the extensions.
 
 ```powershell
+cargo build -p rpi-providers --locked
 cargo test --workspace --locked
 task install
 ```
+
+Build `rpi-providers` before running its integration tests, which load the
+actual native library.
 
 `task install` builds the workspace and copies catalog extensions to
 `~/.rpi/agent/extensions`, or `$RPI_CODING_AGENT_DIR/extensions` when configured.
@@ -125,10 +182,20 @@ rpi install rpi-todo
 rpi install rpi-todo --version 0.2.3
 ```
 
-The `rpi install` command downloads the crate from crates.io, compiles its cdylib
-for the current OS and architecture, and places it in `~/.rpi/agent/extensions`.
-After publishing a release, users who prefer prebuilt binaries can download the
-platform-specific archive generated by CI and run the installer it ships with.
+For GitHub prebuilt installation, select this repository explicitly:
+
+```powershell
+rpi install rpi-ui-adapter --github pi-rust/rpi-package
+rpi install rpi-providers --github pi-rust/rpi-package
+rpi update
+```
+
+Use `rpi uninstall <package>` to remove a package installed through the host.
+Check each package guide for host requirements and source-install alternatives.
+
+Users can also download a platform bundle from
+[GitHub Releases](https://github.com/pi-rust/rpi-package/releases) and run its
+installer.
 The archive is self-contained: it carries the extension libraries, the catalog
 and the `rpi-package-install` binary itself, so no shell script is involved.
 
@@ -146,9 +213,13 @@ cd .\rpi-packages-windows-x86_64
 .\rpi-package-install.exe install --source-dir .
 ```
 
-Developers can instead clone this repository and run `task install`; the package
-workspace uses the already published `rpi-plugin-sdk` only, so a sibling
-`pi-rust` checkout is not needed.
+Developers can instead clone this repository and run `task install`. Most
+extensions use the published `rpi-plugin-sdk` 0.3.20 pinned in the workspace;
+`rpi-providers` independently pins the published SDK and core dependencies to
+0.6.3, enabling `provider` only for that package. A sibling `pi-rust` checkout
+is not needed for the workspace build. Linux builds with voice support also need native audio
+and TLS development libraries (`libasound2-dev`, `libssl-dev` and `pkg-config`
+on Ubuntu).
 
 To install an already-downloaded archive without unpacking it by hand:
 

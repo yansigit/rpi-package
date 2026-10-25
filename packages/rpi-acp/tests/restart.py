@@ -16,6 +16,22 @@ import uuid
 from pathlib import Path
 
 
+def fixture_environment(root):
+    """Give native frontends a deterministic model without user configuration."""
+    agent = root / "agent"
+    extensions = agent / "extensions"
+    extensions.mkdir(parents=True, exist_ok=True)
+    (agent / "models.json").write_text(json.dumps({"providers": {"acp-fixture": {
+        "api": "openai-completions", "baseUrl": "http://127.0.0.1:1/v1", "apiKey": "offline-fixture",
+        "models": [{"id": "fixture", "name": "fixture", "reasoning": False,
+                    "input": ["text"], "contextWindow": 8192, "maxTokens": 1024}],
+    }}}), encoding="utf-8")
+    (agent / "settings.json").write_text(json.dumps({"defaultProvider": "acp-fixture",
+        "defaultModel": "fixture", "defaultThinkingLevel": "off"}), encoding="utf-8")
+    return dict(RPI_CODING_AGENT_DIR=str(agent), RPI_EXTENSIONS_DIR=str(extensions),
+                RPI_PROVIDER="acp-fixture", RPI_MODEL="fixture", RPI_OFFLINE="1")
+
+
 class Client:
     def __init__(self, command, env):
         self.output = queue.Queue()
@@ -70,9 +86,20 @@ def check(command, env, cwd, store):
         result, _ = first.request("initialize", {"protocolVersion": 1})
         assert result["result"]["agentCapabilities"]["loadSession"] is True
         result, _ = first.request("session/new", {"cwd": cwd, "mcpServers": []})
-        assert "error" not in result, result
+        assert "error" not in result, (result, "".join(first.errors))
+        config_options = result["result"].get("configOptions", [])
+        model = next((option for option in config_options if option.get("id") == "model"), None)
+        assert model is not None, (result, "".join(first.errors))
+        values = []
+        for option in model["options"]:
+            values.extend(item["value"] for item in option.get("options", [option]))
+        assert "acp-fixture/fixture" in values, (result, "".join(first.errors))
         session_id = result["result"]["sessionId"]
         uuid.UUID(session_id)
+        switched, _ = first.request("session/set_config_option", {
+            "sessionId": session_id, "configId": "model", "value": "acp-fixture/fixture"
+        })
+        assert "error" not in switched, (switched, "".join(first.errors))
     finally:
         first.close()
 
@@ -98,7 +125,8 @@ def check(command, env, cwd, store):
         try:
             client.request("initialize", {"protocolVersion": 1})
             result, updates = client.request(method, {"sessionId": session_id, "cwd": cwd, "mcpServers": []})
-            assert result.get("result") == {}, (result, "".join(client.errors))
+            # load/resume also return the session's configOptions (model + thinking).
+            assert "configOptions" in result.get("result", {}), (result, "".join(client.errors))
             if method == "session/load":
                 assert any(item.get("params", {}).get("update", {}).get("content", {}).get("text")
                            == "ACP_RESTART_HISTORY" for item in updates), updates
@@ -122,6 +150,7 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="rpi-acp-restart-") as directory:
         root = Path(directory)
         env = os.environ.copy()
+        env.update(fixture_environment(root))
         env.update(RPI_BIN=args.rpi, RPI_ACP_SESSION_DIR=str(root / "sessions"),
                    RPI_ACP_NO_AUTO_REGISTER_ZED="1", RPI_ACP_NO_PERMISSION_GATE="1")
         check([args.bridge], env, str(root), root / "sessions")

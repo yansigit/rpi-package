@@ -7,6 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.16...rpi-acp-v0.1.17) - 2026-10-25
+
+### Added
+
+- *(durable)* add branch-backed durable runtime
+
+### Added
+
+- Add the optional ACP `session/durable` extension for branch-backed durable
+  state, run recovery and queue coordination; hosts without branch support
+  continue to serve ordinary ACP sessions.
+- Add the optional `session/durable_update` notification after durable state is
+  successfully persisted, including its revision and complete branch-backed
+  state snapshot.
+
+## [0.1.16](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.15...rpi-acp-v0.1.16) - 2026-10-25
+
+### Other
+
+- updated the following local packages: rpi-extcore
+
+## [0.1.15](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.14...rpi-acp-v0.1.15) - 2026-10-24
+
+### Other
+
+- extract shared extension core and HTTP adapter
+
+## [0.1.14](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.13...rpi-acp-v0.1.14) - 2026-10-23
+
+### Fixed
+
+- *(acp)* hide todo tool JSON from Zed cards
+- *(acp)* refresh Zed plan from todo updates
+
+### Other
+
+- Merge branch 'main' of github.com:pi-rust/rpi-package into feature/web-session-search
+- *(release)* bump workspace to 0.1.9
+
+## [0.1.13](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.12...rpi-acp-v0.1.13) - 2026-10-23
+
+### Fixed
+
+- *(acp)* publish todo cards and live Zed plan updates ([#62](https://github.com/pi-rust/rpi-package/pull/62))
+
+## [0.1.12](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.11...rpi-acp-v0.1.12) - 2026-10-22
+
+### Fixed
+
+- *(acp)* expose Zed model and provider switching
+
+### Fixed
+
+- Make Zed model configuration resilient across native RPC state shapes, group models by Provider, and retain model switching when thinking-level discovery is unavailable. Configuration failures are now logged instead of silently hiding the ACP options.
+
+## [0.1.11] - 2026-10-21
+
+### Added
+
+- Advertise ACP Session Config Options — a `model` and a `thought_level` selector — so clients (e.g. Zed) can offer a model picker, and implement `session/set_config_option` to switch model or thinking level without reconnecting.
+- Advertise `logout` and `session/delete`, implementing both: log out the default provider, and tear down a session's backend plus its persisted files.
+
+### Fixed
+
+- Forward the host's `--model` / `--provider` flags to the spawned `rpi --mode rpc` child so a Zed `args: ["--acp", "--model", "gateway/model"]` actually selects that model for the session.
+
+## [0.1.10] - 2026-10-21
+
+### Fixed
+
+- Align the ACP extension and standalone bridge with the current native RPC: send prompt `message`, read `success`/`data`, and wait for `agent_settled` after acceptance. Preserve final message snapshots and report rejected or failed runs correctly. Update RPC fixtures and add acceptance, state, and terminal-outcome regressions.
+- Stop a desynchronized backend when its event queue overflows instead of waiting indefinitely for a lost acceptance or returning an incomplete reply. Require reconnecting before reusing that backend.
+- Inherit the workspace's exact SDK version so published builds retain the tested plugin ABI.
+
+## [0.1.9](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.8...rpi-acp-v0.1.9) - 2026-10-17
+
+### Added
+
+- *(release)* add package-only backfill and prebuilt distribution
+- *(release)* add cross-platform prebuilt extension distribution
+
+### Fixed
+
+- harden subagent lifecycle and integrations
+
+### Other
+
+- Merge main into feature-1014 and preserve release compatibility
+- explain native Computer ACP setup and selective releases
+- *(acp)* fold core back into ACP and remove WebUI integration
+- Merge main into feature-1014 and preserve ACP integration checks
+- *(release)* use reusable release assets workflow
+
 ## [0.1.8](https://github.com/pi-rust/rpi-package/compare/rpi-acp-v0.1.7...rpi-acp-v0.1.8) - 2026-10-16
 
 ### Added

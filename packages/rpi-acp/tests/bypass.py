@@ -16,11 +16,18 @@ def backend():
         "args": sys.argv[1:], "gate": os.environ.get("RPI_PERMISSION_GATE"),
     }), encoding="utf-8")
     session_id = sys.argv[sys.argv.index("--session-id") + 1]
+    print(json.dumps(dict(type="ready", protocol="rpi")), flush=True)
     for line in sys.stdin:
         command = json.loads(line)
         if command["type"] == "get_state":
-            print(json.dumps(dict(type="response", id=command["id"], status="ok",
-                                  result=dict(sessionId=session_id, leafId=None))), flush=True)
+            print(json.dumps(dict(type="response", id=command["id"], command="get_state", success=True,
+                                  data=dict(sessionId=session_id, leafId=None))), flush=True)
+        elif command["type"] == "get_available_models":
+            print(json.dumps(dict(type="response", id=command["id"], command="get_available_models",
+                                  success=True, data=dict(models=[]))), flush=True)
+        elif command["type"] == "get_available_thinking_levels":
+            print(json.dumps(dict(type="response", id=command["id"], command="get_available_thinking_levels",
+                                  success=True, data=dict(levels=[]))), flush=True)
 
 
 def check(command, env, root, bypass, legacy=False):
