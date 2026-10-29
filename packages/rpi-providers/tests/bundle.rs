@@ -43,8 +43,8 @@ fn load() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
 async fn one_library_declares_all_provider_catalogs_and_auth_policies() {
     let (session, providers) = load();
     let snapshot = session.snapshot().expect("bundle loaded");
-    assert_eq!(providers.len(), 5);
-    assert_eq!(snapshot.providers().len(), 5);
+    assert_eq!(providers.len(), 6);
+    assert_eq!(snapshot.providers().len(), 6);
     // Antigravity authenticates through its OAuth flow only; it declares no API-key variable.
     for (id, env, auth) in [
         ("deepseek", Some("DEEPSEEK_API_KEY"), true),
@@ -52,6 +52,7 @@ async fn one_library_declares_all_provider_catalogs_and_auth_policies() {
         ("llama-cpp", Some("LLAMA_CPP_API_KEY"), false),
         ("proxy", Some("PROXY_API_KEY"), false),
         ("antigravity", None, true),
+        ("opencode-go", Some("OPENCODE_API_KEY"), true),
     ] {
         let manifest = snapshot
             .provider_manifest(id)
@@ -78,7 +79,7 @@ async fn simultaneous_requests_use_each_providers_own_factory_and_credentials() 
     let base = format!("http://{}/v1", listener.local_addr().unwrap());
     let server = tokio::spawn(async move {
         let mut seen = vec![];
-        for _ in 0..4 {
+        for _ in 0..5 {
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut request = vec![];
             let end = loop {
@@ -107,6 +108,7 @@ async fn simultaneous_requests_use_each_providers_own_factory_and_credentials() 
                 "openrouter/auto" => "openrouter",
                 "local" => "llama-cpp",
                 "default" => "proxy",
+                "kimi-k3" => "opencode-go",
                 other => panic!("unexpected model {other}"),
             };
             assert!(headers.starts_with("post /v1/chat/completions "));
@@ -146,7 +148,8 @@ async fn simultaneous_requests_use_each_providers_own_factory_and_credentials() 
     });
     let mut requests = vec![];
     // Antigravity speaks Cloud Code's Gemini SSE, not this chat server; it is covered by
-    // tests/antigravity.rs, so the four chat providers keep this shared exchange unchanged.
+    // tests/antigravity.rs. OpenCode Go's first model (kimi-k3) is a chat-completions model,
+    // so it joins the four chat providers here; its other APIs are in tests/opencode_go.rs.
     for provider in providers
         .into_iter()
         .filter(|provider| provider.id() != rpi_providers::antigravity::PROVIDER_ID)

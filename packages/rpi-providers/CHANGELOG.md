@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add the OpenCode Go provider (`opencode-go`) as a module, ported from Pi's built-in provider (pi-ai 1.3.0, MIT). Its 28 chat models come from Pi's catalog, with `kimi-k3` as the default. Each request goes to the model's own Pi API (chat completions, Anthropic messages or Responses) under `https://opencode.ai/inference/go`, and carries `x-opencode-session` unless the caller set it. Auth is `OPENCODE_API_KEY` or `rpi auth login --provider opencode-go`, and a rejected key never appears in error text. `gemini-4-argon-contributor` is not included because rpi-ai 0.8.3 has no Google Generative AI protocol.
+
 ## [0.1.6](https://github.com/pi-rust/rpi-package/compare/rpi-providers-v0.1.5...rpi-providers-v0.1.6) - 2026-10-28
 
 ### Fixed

@@ -42,13 +42,15 @@ fn providers() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
         &session,
         tokio::runtime::Handle::current(),
     );
-    assert_eq!(providers.len(), 5);
+    assert_eq!(providers.len(), 6);
     (session, providers)
 }
 
 /// The OpenAI-chat fixtures below cannot serve Antigravity, which speaks Cloud Code's
 /// Gemini SSE protocol. Its lifecycle, streaming and cancellation coverage lives in
 /// tests/antigravity.rs; every other provider keeps the shared assertions unchanged.
+/// OpenCode Go stays: its first model (kimi-k3) is chat-completions. Its Anthropic and
+/// Responses models are covered in tests/opencode_go.rs.
 fn chat_providers() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
     let (session, providers) = providers();
     let chat = providers
@@ -465,6 +467,7 @@ async fn native_provider_constructors_report_transport_errors_without_panicking(
             rpi_providers::proxy::ProxyConfig::new("http://127.0.0.1:9/v1"),
         )),
         Arc::new(rpi_providers::llama_cpp::LlamaCppProvider::with_defaults()),
+        Arc::new(rpi_providers::opencode_go::OpenCodeGoProvider::new(None)),
     ];
     for provider in native {
         let model = Model::new(

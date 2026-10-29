@@ -34,20 +34,23 @@ pub(crate) async fn stream(
     };
     match protocol {
         Ok(provider) => provider.stream_simple(model, context, options).await,
-        Err(error) => {
-            let (mut producer, stream) = create_assistant_message_event_stream();
-            producer.push(AssistantMessageEvent::Error {
-                reason: rpi_ai::types::ErrorReason::Error,
-                error: AssistantMessage::terminal(
-                    model.api.clone(),
-                    model.provider.clone(),
-                    model.id.clone(),
-                    StopReason::Error,
-                    error,
-                    0,
-                ),
-            });
-            stream
-        }
+        Err(error) => error_stream(model, error),
     }
+}
+
+/// A stream holding only an error terminal, for failures before any request is sent.
+pub(crate) fn error_stream(model: &Model, error: String) -> AssistantMessageEventStream {
+    let (mut producer, stream) = create_assistant_message_event_stream();
+    producer.push(AssistantMessageEvent::Error {
+        reason: rpi_ai::types::ErrorReason::Error,
+        error: AssistantMessage::terminal(
+            model.api.clone(),
+            model.provider.clone(),
+            model.id.clone(),
+            StopReason::Error,
+            error,
+            0,
+        ),
+    });
+    stream
 }

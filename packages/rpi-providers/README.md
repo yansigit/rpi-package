@@ -1,6 +1,6 @@
 # rpi-providers
 
-一个可安装的原生扩展包，统一维护 DeepSeek、OpenRouter、llama.cpp、Proxy 和 Antigravity。
+一个可安装的原生扩展包，统一维护 DeepSeek、OpenRouter、llama.cpp、Proxy、Antigravity 和 OpenCode Go。
 只有一个 Cargo package、一个动态库和一个插件入口；供应商实现分别放在模块中。
 核心继续保留 OpenAI / Anthropic 通用协议，CLI 不依赖供应商包。
 
@@ -11,8 +11,9 @@
 | `llama-cpp` | `local` | 可匿名，可选 `LLAMA_CPP_API_KEY` |
 | `proxy` | `default` | 可匿名，可选 `PROXY_API_KEY` |
 | `antigravity` | `antigravity-gemini-3.8-flash` 等 6 个目录模型 | 必须认证，仅 OAuth 登录，无 API key 环境变量 |
+| `opencode-go` | `kimi-k3` 等 28 个目录模型 | 必须认证，`OPENCODE_API_KEY` |
 
-包名 `rpi-providers` 与 provider ID 不同。一次安装注册五份目录，认证仍按 provider ID
+包名 `rpi-providers` 与 provider ID 不同。一次安装注册六份目录，认证仍按 provider ID
 隔离，不能借用 `OPENAI_API_KEY` 或其他供应商的 key。已有 models.json、auth.json 的
 provider ID 不变，无需合并凭据。匿名目录就绪不代表本地服务已经启动，使用时指定 provider。
 
@@ -114,6 +115,36 @@ cargo test -p rpi-providers --lib antigravity
 `rpi package unlink providers`，会一起移除四个 provider；`/provider remove <id>` 只删除对应配置。
 已链接包更新后重启或 `/reload` 生效；移除当前使用的包时，重载报错并保留旧会话。
 
+## OpenCode Go 行为
+
+移植自 Pi 内置的 `opencode-go` 供应商（`@earendil-works/pi-ai` 1.3.0 的
+`providers/opencode-go.ts`、`opencode-headers.ts`；MIT，Copyright (c) 2025 Mario Zechner），
+许可文本见 `src/opencode_go/LICENSE`。`src/opencode_go/catalog.json` 由 Pi 的
+`providers/data/opencode-go.json` 按原顺序展开生成，只含 chat 模型；默认模型与 Pi 相同，为 `kimi-k3`。
+
+同一个 provider ID 下的模型使用不同的线协议。宿主按 (provider, api) 路由，本包只注册
+`openai-completions` 一种样式，因此目录里的模型都声明该样式；请求时再按模块目录查出 Pi 的
+实际协议并分派。端点均在 `https://opencode.ai/inference/go` 下，与 Pi SDK 客户端一致：
+
+| Pi API | 示例模型 | 请求路径 | 认证头 |
+| --- | --- | --- | --- |
+| `openai-completions` | `kimi-k3` | `/inference/go/v1/chat/completions` | `Authorization: Bearer` |
+| `anthropic-messages` | `claude-haiku-5-5` | `/inference/go/v1/messages` | `x-api-key` |
+| `openai-responses` | `gpt-6-luna` | `/inference/go/v1/responses` | `Authorization: Bearer` |
+
+每个请求带 `x-opencode-session: <sessionId>`，调用方已设置同名请求头（不区分大小写）时保留
+调用方的值，与 Pi 的 `withSessionHeader` 相同。认证只用 API key：`rpi auth login --provider opencode-go`
+或 `OPENCODE_API_KEY`，不借用其他供应商的 key；缺少 key 时在发请求前报错。错误文本中出现的
+key 会被替换为 `[credential]`。
+
+未移植的模型：`gemini-4-argon-contributor`（Pi API 为 `google-generative-ai`，`rpi-ai` 0.8.3
+没有对应协议）。在 models.json 为 `opencode-go` 设置 provider 级 `baseUrl` 时，填写
+`.../inference/go` 这一层，三种协议会各自补全路径。
+
+```sh
+cargo test -p rpi-providers --test opencode_go
+```
+
 ## 开发结构
 
 ```text
@@ -124,6 +155,7 @@ src/openrouter.rs      # OpenRouter 目录及 HTTP-Referer / X-Title
 src/llama_cpp/         # 本地推理、模型查询、服务管理
 src/proxy/             # 通用代理推理
 src/antigravity/       # Antigravity 目录、Gemini 转换、SSE、项目发现与 OAuth
+src/opencode_go/       # OpenCode Go 目录（来自 Pi）、按模型分派协议、会话请求头
 src/bin/rpi-llama.rs   # 原有本地服务管理程序
 ```
 
