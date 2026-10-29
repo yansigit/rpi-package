@@ -145,6 +145,15 @@ key 会被替换为 `[credential]`。
 cargo test -p rpi-providers --test opencode_go
 ```
 
+## 限流标记
+
+OpenCode Go 与 Antigravity 遇到限流（HTTP 429、`usage_limit_reached`、
+`rate_limit`、`RESOURCE_EXHAUSTED` 等）时，错误终止事件的文本以固定标记开头，供账号池解析：
+已知重置时间时为 `rate_limited; resets_at=<unix 秒> `，否则为 `rate_limited; `，其后是原始
+（已脱敏）错误文本。重置时间取自响应体中的 `resets_at`、`resets_in_seconds` 或 Google 的
+`retryDelay`；响应头（如 `retry-after`）目前读不到，因为 rpi-ai 0.8.3 在生成错误文本前丢弃了它们。
+取消请求时不加标记。
+
 ## 开发结构
 
 ```text
@@ -156,6 +165,7 @@ src/llama_cpp/         # 本地推理、模型查询、服务管理
 src/proxy/             # 通用代理推理
 src/antigravity/       # Antigravity 目录、Gemini 转换、SSE、项目发现与 OAuth
 src/opencode_go/       # OpenCode Go 目录（来自 Pi）、按模型分派协议、会话请求头
+src/rate_limit.rs      # 各供应商共用的限流标记
 src/bin/rpi-llama.rs   # 原有本地服务管理程序
 ```
 

@@ -54,3 +54,28 @@ pub(crate) fn error_stream(model: &Model, error: String) -> AssistantMessageEven
     });
     stream
 }
+
+/// Gateways may echo a rejected credential in the error body; the terminal never carries it.
+/// A rate-limited terminal gains the shared `rate_limited;` marker (see `rate_limit`).
+pub(crate) fn guard(
+    mut inner: AssistantMessageEventStream,
+    secret: String,
+) -> AssistantMessageEventStream {
+    let (mut producer, stream) = create_assistant_message_event_stream();
+    tokio::spawn(async move {
+        while let Some(mut event) = inner.next().await {
+            if let AssistantMessageEvent::Error { reason, error } = &mut event {
+                if let Some(text) = error.error_message.as_mut() {
+                    if !secret.is_empty() {
+                        *text = text.replace(&secret, "[credential]");
+                    }
+                    if *reason != rpi_ai::ErrorReason::Aborted {
+                        *text = crate::rate_limit::mark(text);
+                    }
+                }
+            }
+            producer.push(event);
+        }
+    });
+    stream
+}

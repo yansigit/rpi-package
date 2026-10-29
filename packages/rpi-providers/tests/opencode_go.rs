@@ -399,8 +399,49 @@ async fn unauthorized_is_one_error_terminal_that_never_echoes_the_key() {
         assert_eq!(message.stop_reason, StopReason::Error, "{id}");
         let error = message.error_message.unwrap_or_default();
         assert!(error.contains("401"), "{id}: {error}");
+        assert!(!error.starts_with("rate_limited"), "{id}: {error}");
         assert!(!error.contains(KEY), "{id}: {error}");
         server.await.unwrap();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rate_limits_carry_the_shared_marker_in_every_family() {
+    let (_session, provider) = load();
+    for (id, ..) in families() {
+        for (body, prefix) in [
+            (
+                json!({"error":{"message":format!("Rate limit exceeded for {KEY}"),"resets_at":1893456000}}),
+                "rate_limited; resets_at=1893456000 ",
+            ),
+            (
+                json!({"error":{"message":"Too Many Requests"}}),
+                "rate_limited; ",
+            ),
+        ] {
+            let (origin, server) = serve(429, body.to_string()).await;
+            let message = provider
+                .stream_simple(
+                    &model(provider.as_ref(), id, &origin),
+                    &context(),
+                    &options(Some(KEY)),
+                )
+                .await
+                .result()
+                .await
+                .unwrap();
+            server.await.unwrap();
+            let error = message.error_message.unwrap_or_default();
+            assert!(error.starts_with(prefix), "{id}: {error}");
+            assert!(error.contains("429"), "{id}: {error}");
+            assert!(!error.contains(KEY), "{id}: {error}");
+            if prefix == "rate_limited; " {
+                assert!(
+                    !error.starts_with("rate_limited; resets_at"),
+                    "{id}: {error}"
+                );
+            }
+        }
     }
 }
 

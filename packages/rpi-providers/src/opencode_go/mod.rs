@@ -7,10 +7,8 @@
 mod catalog;
 
 use rpi_ai::{
-    event_stream::create_assistant_message_event_stream,
     providers::{anthropic::AnthropicProvider, openai_responses::OpenAiResponsesProvider},
-    Api, AssistantMessageEvent, AssistantMessageEventStream, Context, Model, Provider,
-    SimpleStreamOptions,
+    Api, AssistantMessageEventStream, Context, Model, Provider, SimpleStreamOptions,
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -119,24 +117,8 @@ impl Provider for OpenCodeGoProvider {
             }
             _ => crate::transport::stream(Some(&client), &model, context, &options, false).await,
         };
-        redact(stream, options.api_key.unwrap_or_default())
+        crate::transport::guard(stream, options.api_key.unwrap_or_default())
     }
-}
-
-/// Gateways may echo a rejected key in the error body; the terminal never carries it.
-fn redact(mut inner: AssistantMessageEventStream, key: String) -> AssistantMessageEventStream {
-    let (mut producer, stream) = create_assistant_message_event_stream();
-    tokio::spawn(async move {
-        while let Some(mut event) = inner.next().await {
-            if let AssistantMessageEvent::Error { error, .. } = &mut event {
-                if let Some(text) = error.error_message.as_mut().filter(|_| !key.is_empty()) {
-                    *text = text.replace(&key, "[credential]");
-                }
-            }
-            producer.push(event);
-        }
-    });
-    stream
 }
 
 fn create(

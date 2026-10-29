@@ -5,6 +5,7 @@ pub mod llama_cpp;
 pub mod opencode_go;
 pub mod openrouter;
 pub mod proxy;
+mod rate_limit;
 mod registration;
 mod transport;
 

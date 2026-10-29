@@ -239,7 +239,13 @@ impl State {
         sink: &mut impl EventSink,
     ) -> Result<(), String> {
         self.output["stopReason"] = json!(if cancelled { "aborted" } else { "error" });
-        self.output["errorMessage"] = super::redaction::text(error, credentials, projects).into();
+        let text = super::redaction::text(error, credentials, projects);
+        self.output["errorMessage"] = if cancelled {
+            text
+        } else {
+            crate::rate_limit::mark(&text)
+        }
+        .into();
         sink.emit(json!({"type":"error","reason":self.output["stopReason"],"error":self.output}))
             .await
     }

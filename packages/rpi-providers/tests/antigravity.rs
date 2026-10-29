@@ -632,6 +632,7 @@ async fn http_errors_become_one_terminal_without_leaking_credentials() {
         assert_eq!(error.stop_reason, StopReason::Error);
         let message = error.error_message.as_deref().unwrap();
         assert!(message.contains(expected_status), "{message}");
+        assert!(!message.starts_with("rate_limited"), "{message}");
         assert!(
             !message.contains("access-denied-token"),
             "token leaked: {message}"
@@ -640,6 +641,49 @@ async fn http_errors_become_one_terminal_without_leaking_credentials() {
             !message.contains("project-access-denied-token"),
             "project leaked: {message}"
         );
+    }
+    server.await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn resource_exhausted_carries_the_rate_limit_marker() {
+    let (_session, providers) = load();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let with_delay = r#"{"error":{"code":429,"message":"Quota exhausted for limited-token","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"30s"}]}}"#;
+    let without = r#"{"error":{"code":429,"message":"Resource has been exhausted","status":"RESOURCE_EXHAUSTED"}}"#;
+    let server = tokio::spawn(async move {
+        for body in [with_delay, without] {
+            let (mut socket, _) = next_stream(&listener).await;
+            respond_json(&mut socket, 429, body).await;
+        }
+    });
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    for expect_reset in [true, false] {
+        let message = antigravity(&providers)
+            .stream_simple(&model(&base), &context(), &options("limited-token"))
+            .await
+            .result()
+            .await
+            .unwrap();
+        assert_eq!(message.stop_reason, StopReason::Error);
+        let error = message.error_message.unwrap();
+        assert!(!error.contains("limited-token"), "token leaked: {error}");
+        assert!(error.contains("HTTP 429"), "{error}");
+        if expect_reset {
+            let at: i64 = error
+                .strip_prefix("rate_limited; resets_at=")
+                .and_then(|rest| rest.split(' ').next())
+                .and_then(|at| at.parse().ok())
+                .unwrap_or_else(|| panic!("{error}"));
+            assert!((now + 25..=now + 40).contains(&at), "{error}");
+        } else {
+            assert!(error.starts_with("rate_limited; "), "{error}");
+            assert!(!error.starts_with("rate_limited; resets_at"), "{error}");
+        }
     }
     server.await.unwrap();
 }
