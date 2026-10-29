@@ -2,6 +2,7 @@
 pub mod antigravity;
 pub mod deepseek;
 pub mod llama_cpp;
+pub mod openai_codex;
 pub mod opencode_go;
 pub mod openrouter;
 pub mod proxy;
@@ -13,7 +14,7 @@ mod transport;
 /// into, which this crate cannot change. The module keeps the allow off the rest of the crate.
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 mod entry {
-    use crate::{antigravity, deepseek, llama_cpp, opencode_go, openrouter, proxy};
+    use crate::{antigravity, deepseek, llama_cpp, openai_codex, opencode_go, openrouter, proxy};
 
     rpi_plugin_sdk::export_plugin!(|api| {
         for register in [
@@ -23,6 +24,7 @@ mod entry {
             proxy::register,
             antigravity::register,
             opencode_go::register,
+            openai_codex::register,
         ] {
             let result = register(api);
             if result != 0 {

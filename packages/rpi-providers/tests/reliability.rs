@@ -42,7 +42,7 @@ fn providers() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
         &session,
         tokio::runtime::Handle::current(),
     );
-    assert_eq!(providers.len(), 6);
+    assert_eq!(providers.len(), 7);
     (session, providers)
 }
 
@@ -50,12 +50,19 @@ fn providers() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
 /// Gemini SSE protocol. Its lifecycle, streaming and cancellation coverage lives in
 /// tests/antigravity.rs; every other provider keeps the shared assertions unchanged.
 /// OpenCode Go stays: its first model (kimi-k3) is chat-completions. Its Anthropic and
-/// Responses models are covered in tests/opencode_go.rs.
+/// Responses models are covered in tests/opencode_go.rs. OpenAI Codex speaks the Codex
+/// Responses protocol and is covered in tests/openai_codex.rs.
 fn chat_providers() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
     let (session, providers) = providers();
     let chat = providers
         .into_iter()
-        .filter(|provider| provider.id() != rpi_providers::antigravity::PROVIDER_ID)
+        .filter(|provider| {
+            ![
+                rpi_providers::antigravity::PROVIDER_ID,
+                rpi_providers::openai_codex::PROVIDER_ID,
+            ]
+            .contains(&provider.id())
+        })
         .collect();
     (session, chat)
 }

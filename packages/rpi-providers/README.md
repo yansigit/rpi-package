@@ -1,6 +1,6 @@
 # rpi-providers
 
-一个可安装的原生扩展包，统一维护 DeepSeek、OpenRouter、llama.cpp、Proxy、Antigravity 和 OpenCode Go。
+一个可安装的原生扩展包，统一维护 DeepSeek、OpenRouter、llama.cpp、Proxy、Antigravity、OpenCode Go 和 OpenAI Codex。
 只有一个 Cargo package、一个动态库和一个插件入口；供应商实现分别放在模块中。
 核心继续保留 OpenAI / Anthropic 通用协议，CLI 不依赖供应商包。
 
@@ -12,8 +12,9 @@
 | `proxy` | `default` | 可匿名，可选 `PROXY_API_KEY` |
 | `antigravity` | `antigravity-gemini-3.8-flash` 等 6 个目录模型 | 必须认证，仅 OAuth 登录，无 API key 环境变量 |
 | `opencode-go` | `kimi-k3` 等 28 个目录模型 | 必须认证，`OPENCODE_API_KEY` |
+| `openai-codex` | `gpt-6.1-sol` 等 9 个目录模型 | 必须认证，仅 ChatGPT OAuth 登录，无 API key 环境变量 |
 
-包名 `rpi-providers` 与 provider ID 不同。一次安装注册六份目录，认证仍按 provider ID
+包名 `rpi-providers` 与 provider ID 不同。一次安装注册七份目录，认证仍按 provider ID
 隔离，不能借用 `OPENAI_API_KEY` 或其他供应商的 key。已有 models.json、auth.json 的
 provider ID 不变，无需合并凭据。匿名目录就绪不代表本地服务已经启动，使用时指定 provider。
 
@@ -145,9 +146,50 @@ key 会被替换为 `[credential]`。
 cargo test -p rpi-providers --test opencode_go
 ```
 
+## OpenAI Codex（ChatGPT 订阅）行为与登录
+
+移植自 Pi 内置的 `openai-codex` 供应商（`@earendil-works/pi-ai` 1.3.0 的
+`providers/openai-codex.ts`、`api/openai-codex-responses.ts`、`auth/oauth/openai-codex.ts`；
+MIT，Copyright (c) 2025 Mario Zechner），许可文本见 `src/openai_codex/LICENSE`。
+`src/openai_codex/catalog.json` 即 Pi 的 `providers/data/openai-codex.json`，默认模型与 Pi
+相同，为 `gpt-6.1-sol`。使用 ChatGPT Plus/Pro 订阅额度，而不是 OpenAI API key。
+
+| 项目 | 取值 |
+| --- | --- |
+| 请求 | `POST https://chatgpt.com/backend-api/codex/responses`（SSE） |
+| 请求头 | `Authorization: Bearer <token>`、`chatgpt-account-id`、`originator: pi`、`OpenAI-Beta: responses=experimental`、`accept: text/event-stream`，有会话时加 `session-id` 与 `x-client-request-id` |
+| 请求体 | `store: false`、`stream: true`、`instructions`（系统提示，缺省为 `You are a helpful assistant.`）、`include: ["reasoning.encrypted_content"]`、`text.verbosity: low`、`prompt_cache_key`、`tool_choice: auto`、`parallel_tool_calls: true`，不发送 `max_output_tokens` |
+
+登录：
+
+```sh
+rpi auth login --provider openai-codex
+rpi auth refresh --provider openai-codex
+rpi auth logout --provider openai-codex
+```
+
+宿主打印授权 URL 后，在浏览器用 ChatGPT 账号登录。浏览器随后跳转到
+`http://localhost:1455/auth/callback?...`，该页面无法打开属正常现象，把地址栏中的完整 URL
+（或其中的 code）粘贴回终端。OAuth 客户端是 Pi 使用的公开 PKCE 客户端，无需配置任何密钥。
+带 `state` 的输入必须与本次登录一致，否则直接拒绝且不发起网络请求；裸 code 使用最近一次登录。
+每次登录 10 分钟内有效，使用后即失效。Pi 的设备码登录与本地回调服务没有移植。
+
+登录与刷新保存的 access 为 `<access token>|<ChatGPT 账号 ID>`（账号 ID 取自 token 的
+`https://api.openai.com/auth` 声明），发往 OpenAI 的只有 token。不带 `|` 的 token 也可使用，
+此时从 token 中读取账号 ID。Pi 没有吊销接口，`logout` 只删除本地凭据。过期凭据不会自动刷新，
+需要先执行 `rpi auth refresh`。错误文本中的 token 会被替换为 `[credential]`。
+
+与 Pi 的差异：目录模型声明为 `openai-responses`（rpi-ai 0.8.3 用 Responses 协议流式解析，
+其推理回放要求消息与模型的 API 一致）；不使用 WebSocket 与 zstd 压缩；`User-Agent` 不含系统版本号；
+429 的错误文本保留原始响应，而不是 Pi 的“ChatGPT usage limit”提示。
+
+```sh
+cargo test -p rpi-providers --test openai_codex
+```
+
 ## 限流标记
 
-OpenCode Go 与 Antigravity 遇到限流（HTTP 429、`usage_limit_reached`、
+OpenAI Codex、OpenCode Go 与 Antigravity 遇到限流（HTTP 429、`usage_limit_reached`、
 `rate_limit`、`RESOURCE_EXHAUSTED` 等）时，错误终止事件的文本以固定标记开头，供账号池解析：
 已知重置时间时为 `rate_limited; resets_at=<unix 秒> `，否则为 `rate_limited; `，其后是原始
 （已脱敏）错误文本。重置时间取自响应体中的 `resets_at`、`resets_in_seconds` 或 Google 的
@@ -165,6 +207,7 @@ src/llama_cpp/         # 本地推理、模型查询、服务管理
 src/proxy/             # 通用代理推理
 src/antigravity/       # Antigravity 目录、Gemini 转换、SSE、项目发现与 OAuth
 src/opencode_go/       # OpenCode Go 目录（来自 Pi）、按模型分派协议、会话请求头
+src/openai_codex/      # OpenAI Codex 目录（来自 Pi）、ChatGPT OAuth、Codex Responses 请求
 src/rate_limit.rs      # 各供应商共用的限流标记
 src/bin/rpi-llama.rs   # 原有本地服务管理程序
 ```

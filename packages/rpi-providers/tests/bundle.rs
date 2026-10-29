@@ -43,9 +43,10 @@ fn load() -> (rpi_extensions::ExtensionSession, Vec<Arc<dyn Provider>>) {
 async fn one_library_declares_all_provider_catalogs_and_auth_policies() {
     let (session, providers) = load();
     let snapshot = session.snapshot().expect("bundle loaded");
-    assert_eq!(providers.len(), 6);
-    assert_eq!(snapshot.providers().len(), 6);
-    // Antigravity authenticates through its OAuth flow only; it declares no API-key variable.
+    assert_eq!(providers.len(), 7);
+    assert_eq!(snapshot.providers().len(), 7);
+    // Antigravity and OpenAI Codex authenticate through their OAuth flows only; they declare no
+    // API-key variable.
     for (id, env, auth) in [
         ("deepseek", Some("DEEPSEEK_API_KEY"), true),
         ("openrouter", Some("OPENROUTER_API_KEY"), true),
@@ -53,6 +54,7 @@ async fn one_library_declares_all_provider_catalogs_and_auth_policies() {
         ("proxy", Some("PROXY_API_KEY"), false),
         ("antigravity", None, true),
         ("opencode-go", Some("OPENCODE_API_KEY"), true),
+        ("openai-codex", None, true),
     ] {
         let manifest = snapshot
             .provider_manifest(id)
@@ -150,10 +152,14 @@ async fn simultaneous_requests_use_each_providers_own_factory_and_credentials() 
     // Antigravity speaks Cloud Code's Gemini SSE, not this chat server; it is covered by
     // tests/antigravity.rs. OpenCode Go's first model (kimi-k3) is a chat-completions model,
     // so it joins the four chat providers here; its other APIs are in tests/opencode_go.rs.
-    for provider in providers
-        .into_iter()
-        .filter(|provider| provider.id() != rpi_providers::antigravity::PROVIDER_ID)
-    {
+    // OpenAI Codex speaks the Codex Responses protocol; it is covered by tests/openai_codex.rs.
+    for provider in providers.into_iter().filter(|provider| {
+        ![
+            rpi_providers::antigravity::PROVIDER_ID,
+            rpi_providers::openai_codex::PROVIDER_ID,
+        ]
+        .contains(&provider.id())
+    }) {
         let mut model = provider.models()[0].clone();
         model.base_url = base.clone();
         model.headers = Some(std::collections::BTreeMap::from([

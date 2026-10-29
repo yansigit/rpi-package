@@ -4,7 +4,8 @@
 
 ### Added
 
-- Rate-limited errors from `opencode-go` and `antigravity` now start with `rate_limited; resets_at=<unix seconds> ` when the provider reports a reset time, or `rate_limited; ` otherwise, followed by the original message, so account pools can detect them.
+- Add the OpenAI Codex provider (`openai-codex`) for ChatGPT Plus/Pro subscriptions, ported from Pi's built-in provider (pi-ai 1.3.0, MIT). Its 9 chat models come from Pi's catalog, with `gpt-6.1-sol` as the default. Requests go to `https://chatgpt.com/backend-api/codex/responses` with Pi's body (`store: false`, `instructions`, encrypted reasoning) and headers (`chatgpt-account-id`, `originator`, `session-id`). Login is `rpi auth login --provider openai-codex`: open the URL, then paste the `localhost:1455` redirect URL or the code. The credential stores the ChatGPT account id with the access token, and tokens never appear in error text. Pi's WebSocket transport and device-code login are not included.
+- Rate-limited errors from `openai-codex`, `opencode-go` and `antigravity` now start with `rate_limited; resets_at=<unix seconds> ` when the provider reports a reset time, or `rate_limited; ` otherwise, followed by the original message, so account pools can detect them.
 - Add the OpenCode Go provider (`opencode-go`) as a module, ported from Pi's built-in provider (pi-ai 1.3.0, MIT). Its 28 chat models come from Pi's catalog, with `kimi-k3` as the default. Each request goes to the model's own Pi API (chat completions, Anthropic messages or Responses) under `https://opencode.ai/inference/go`, and carries `x-opencode-session` unless the caller set it. Auth is `OPENCODE_API_KEY` or `rpi auth login --provider opencode-go`, and a rejected key never appears in error text. `gemini-4-argon-contributor` is not included because rpi-ai 0.8.3 has no Google Generative AI protocol.
 
 ## [0.1.6](https://github.com/pi-rust/rpi-package/compare/rpi-providers-v0.1.5...rpi-providers-v0.1.6) - 2026-10-28
